@@ -11,14 +11,16 @@ There is a little-used variant however: `complete -C command`. This lets you jus
 Or you could just read on.
 
 ## The answer
- [Here's the manual entry](https://www.gnu.org/software/bash/manual/html_node/Programmable-Completion.html):
+
+[Here's the manual entry](https://www.gnu.org/software/bash/manual/html_node/Programmable-Completion.html):
+
 > When the command or function is invoked, the COMP_LINE, COMP_POINT, COMP_KEY, and COMP_TYPE variables are assigned values as described above (see Bash Variables). If a shell function is being invoked, the COMP_WORDS and COMP_CWORD variables are also set. When the function or command is invoked, the first argument ($1) vis the name of the command whose arguments are being completed, the second argument ($2) is the word being completed, and the third argument ($3) is the word preceding the word being completed on the current command line. No filtering of the generated completions against the word being completed is performed; the function or command has complete freedom in generating the matches.
 > ...
 > Next, any command specified with the -C option is invoked in an environment equivalent to command substitution. It should print a list of completions, one per line, to the standard output. Backslash may be used to escape a newline, if necessary. 
 
 Summarized, you need to make a program that accepts three command-line arguments, (maybe four environment variables too), and prints stuff that matches one of the parameters to stdout. Easy enough. Here's the template in Python:
 
-```
+```python
 #!/usr/bin/env python3
 import sys
 
@@ -41,9 +43,9 @@ def main():
 if __name__ == "__main__":
     main()
 ```
-
 And here's the demo:
-```
+
+```bash
 $ chmod +x ./completion_example.py
 $ complete -C ./completion_example.py heylook
 $ heylook
@@ -55,6 +57,7 @@ It's that easy and comes with free alphabetization! I should note this is specif
 ## The catch
 
 While your eyes are lighting up with possibilities for easy completions in any language other than bash, I should mention there are a few gotchas that show up when you start writing complex completions:
+
 - Your program is executed by `complete`, whenever you trigger tab completion. That means to test output for n different lines, you need to trigger tab completion n times as well. Manually.
 - The fact that it's run by complete means you don't have direct control over the seven variables, so you can't just pass in the current command line and get the output you expect.
 - `complete` is a bash builtin, so you can't call it via subprocess as you would a typical binary to inspect its output.
@@ -62,7 +65,7 @@ While your eyes are lighting up with possibilities for easy completions in any l
 
 For the most part, you can trial-and-error your way towards a robust completion script writing variables out to a file to inspect them. If you're like me, you feel like it'd be nice if there was a way you could simulate `complete` by calling it with the necessary parameters and environment variables programmatically... like so:
 
-```
+```python
 #!/usr/bin/env python3
 import shlex
 import subprocess
@@ -112,7 +115,7 @@ In addition, I'm adding a little twist: For a path like `/mnt/c/Users/U/Userutil
 
 Without further ado:
 
-```
+```python
 #!/usr/bin/env python3
 import pathlib
 import os
@@ -243,6 +246,7 @@ if __name__ == "__main__":
 It's a lot to take in, but some is just copy/paste to make it convenient to run it as one module. `CompletionTestCase_up` contains a few simple test cases for the general functionality I want. Below that, completion hook uses the EXQUISITE [pathlib](https://docs.python.org/3/library/pathlib.html) library to generate a list of paths from either the current path or the environment variable I'm using for testing. It also grabs the contents of `COMP_LINE`, set by `complete` as according to the manual excerpt). From there, it creates a dictionary of path parts to parent paths and the dictionary's keys are matched against most of `comp_line`. If there's only one match, it returns the path.
 
 So to summarize:
+
 1. Thanks to the `complete -C command` option of complete, bash completion scripts can be written in any language, and that's incredibly underrated.
 2. It's understandably underrated because the `complete` function doesn't lend itself well to automation, let alone debugging, and documentation is accessed via `man builtins` instead of `man complete`.
 3. By approximating `complete`'s functionality, you can write unit tests to allow for completions of higher complexity.
