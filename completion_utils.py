@@ -96,7 +96,13 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and pathlib.Path(sys.argv[1]).exists():
         print(bash_complete(" ".join(sys.argv[2:]), sys.argv[1]))
     else:
+        stem = str(pathlib.Path(__file__).stem)
+        usage_fmt = (
+            "usage: {} executable line_to_complete\n"
+            "See README.md for a thorough tutorial on using this file to "
+            "write completions!"
+        )
         print(
-            "usage: completion_helper executable line_to_complete",
+            usage_fmt.format(stem),
             file=sys.stderr
         )
