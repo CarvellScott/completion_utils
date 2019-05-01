@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="completion_utils",
-    version="0.0.1",
+    version="0.0.2",
     author="Carvell Scott",
     author_email="carvell.scott@gmail.com",
     keywords=["bash completion", "complete", "autocomplete", "auto-complete"],

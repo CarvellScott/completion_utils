@@ -1,6 +1,6 @@
 # completion_utils
 
-A lightweight set of functions intended to make writing shell completion functions in python easier. Install with `pip install .` and import what you need from `completion_utils`. Generally you only need to import `bash_completion_decorator`, and decorate a function with it.
+A lightweight set of functions intended to make writing shell completion functions in python easier. Install with `pip install completion-utils` and import what you need from `completion_utils`. Generally you only need to import `bash_completion_decorator`, and decorate a function with it.
 
 ## Usage
 Supposing you have some simple completion like this already...
