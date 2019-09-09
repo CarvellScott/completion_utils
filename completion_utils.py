@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
+import abc
+import argparse
 import os
+import json
 import pathlib
 import shlex
 import subprocess
 import sys
+import unittest
 
 
 def _helper(completion_function):
@@ -12,26 +16,40 @@ def _helper(completion_function):
     if "bash" not in shell:
         quit("Sorry, only bash supported at the moment!")
 
-    comp_exe = str(pathlib.Path(sys.argv[0]).absolute())
     # Get arguments and environment variables
     comp_vars_set = "COMP_LINE" in os.environ and "COMP_POINT" in os.environ
 
     # if the "COMP" variables aren't set, the script is being executed by
-    # a non-completion utility.
+    # something other than complete.
     if not comp_vars_set:
-        args = ["complete", "-C", comp_exe]
-        args.extend(sys.argv[1:])
+        home = str(pathlib.Path.home())
+        comp_exe = str(pathlib.Path(sys.argv[0]).absolute())
+        comp_exe = comp_exe.replace(home, "$HOME")
+        install_args = ["complete", "-C", comp_exe]
+        install_args.extend(sys.argv[1:])
         # Assuming it's the user, we print up
         # some installation instructions that they can evaluate.
+        # TODO: Offer to install or run a unit test.
+
         if sys.stdout.isatty():
             usr_msg = "Redirect this into your .profile to install:"
             print(usr_msg, file=sys.stderr)
-        print(" ".join(args).strip())
+        print(" ".join(install_args).strip())
         return
 
     cmd, curr_word, prev_word = sys.argv[1:]
 
-    # Build up a dict of parameters for the completion function.
+    comp_env_vars = {"LINE", "POINT"}
+    comp_env_vars = set(map("COMP_".__add__, comp_env_vars))
+    with open("completion_utils.log", "w") as f:
+        comp_args = dict()
+        for key in comp_env_vars:
+            comp_args[key] = os.environ[key]
+        comp_args["cmd"] = cmd
+        comp_args["curr_word"] = curr_word
+        comp_args["prev_word"] = prev_word
+        print(json.dumps(comp_args, indent=4, sort_keys=True), file=f)
+
     if completion_function:
         results = completion_function(*sys.argv[1:])
 
@@ -90,6 +108,106 @@ def bash_complete(comp_line, comp_exe):
     if finished_process.stderr:
         raise CompletionError(finished_process.stderr)
     return finished_process.stdout.strip()
+
+
+class BashCompletion(abc.ABC):
+    completion_test_case = None
+
+    @property
+    def comp_line(self):
+        """
+        Convenience method for accessing the "COMP_LINE" env variable.
+        """
+        return os.environ["COMP_LINE"]
+
+    @property
+    def comp_point(self):
+        """
+        Convenience method for accessing the "COMP_POINT" env variable.
+        """
+        return os.environ["COMP_POINT"]
+
+    def main(self):
+        """
+        This function is the entry point of your completion program.
+        If the COMP_LINE and COMP_POINT environment variables are set, it will
+        call completion hook, passing in the command, current word being
+        completed, and the previous word, and expect a set of strings to be
+        returned.
+        That set of strings will be printed out to be used for completion.
+        """
+        comp_vars_set = "COMP_LINE" in os.environ and "COMP_POINT" in os.environ
+        if not comp_vars_set:
+            parser = argparse.ArgumentParser()
+            subparsers = parser.add_subparsers()
+            parser.set_defaults(func=self._print_install_msg)
+
+            parser_test = subparsers.add_parser("test")
+            parser_test.set_defaults(func=self._run_test)
+
+            parser_install = subparsers.add_parser("install")
+            parser_install.add_argument(
+                "command",
+                type=str,
+                help="The command that this completion should be applied to"
+            )
+            parser_install.set_defaults(func=self._print_install_msg)
+
+            args = parser.parse_args()
+            args.func(args)
+        else:
+            results = self.completion_hook(*sys.argv[1:])
+
+            # bash reads stdout for completion. Each entry is on a new line.
+            if len(results):
+                print("\n".join(results))
+
+    def _run_test(self, args):
+        if not self.completion_test_case:
+            err = "No unit tests have been assigned to this completion."
+            raise NotImplementedError(err)
+        runner = unittest.TextTestRunner()
+        runner.run(self.completion_test_case)
+
+    def _print_install_msg(self, args):
+        home = str(pathlib.Path.home())
+        comp_exe = str(pathlib.Path(sys.argv[0]).absolute())
+        comp_exe = comp_exe.replace(home, "$HOME")
+        install_args = ["complete", "-C", comp_exe]
+        usr_msg = (
+            "Redirect this into your .profile to install"
+        )
+        if hasattr(args, "command"):
+            install_args.append(args.command)
+            usr_msg += "completion for {}".format(args.command)
+        usr_msg += ":"
+
+        install_cmd = " ".join(install_args).strip()
+        if sys.stdout.isatty():
+            print(usr_msg, file=sys.stderr)
+        print(install_cmd)
+
+    @abc.abstractmethod
+    def completion_hook(cmd: str, curr_word: str, prev_word: str) -> set:
+        """
+        Overriding this method is required.
+        """
+        ...
+
+
+class CompletionTestCase(unittest.TestCase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.exe = None
+
+    def get_completions(self, comp_line):
+        raw_str = bash_complete(comp_line, self.exe)
+        return set(raw_str.splitlines())
+
+    def setUp(self):
+        if not self.exe:
+            err = "Executable to be used for completion has not been assigned"
+            raise Exception(err)
 
 
 if __name__ == "__main__":
