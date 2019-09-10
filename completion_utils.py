@@ -166,8 +166,13 @@ class BashCompletion(abc.ABC):
         if not self.completion_test_case:
             err = "No unit tests have been assigned to this completion."
             raise NotImplementedError(err)
+        if not issubclass(self.completion_test_case, CompletionTestCase):
+            err = "completion_test_case must subclass CompletionTestCase"
+            raise Exception(err)
+        loader = unittest.defaultTestLoader
+        suite = loader.loadTestsFromTestCase(self.completion_test_case)
         runner = unittest.TextTestRunner()
-        runner.run(self.completion_test_case)
+        runner.run(suite)
 
     def _print_install_msg(self, args):
         home = str(pathlib.Path.home())
@@ -188,7 +193,7 @@ class BashCompletion(abc.ABC):
         print(install_cmd)
 
     @abc.abstractmethod
-    def completion_hook(cmd: str, curr_word: str, prev_word: str) -> set:
+    def completion_hook(command: str, curr_word: str, prev_word: str) -> set:
         """
         Overriding this method is required.
         """
@@ -196,9 +201,7 @@ class BashCompletion(abc.ABC):
 
 
 class CompletionTestCase(unittest.TestCase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.exe = None
+    exe = None
 
     def get_completions(self, comp_line):
         raw_str = bash_complete(comp_line, self.exe)
