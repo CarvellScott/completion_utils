@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import abc
 import argparse
-import os
 import json
+import os
 import pathlib
 import shlex
 import subprocess
@@ -36,19 +36,6 @@ def _helper(completion_function):
             print(usr_msg, file=sys.stderr)
         print(" ".join(install_args).strip())
         return
-
-    cmd, curr_word, prev_word = sys.argv[1:]
-
-    comp_env_vars = {"LINE", "POINT"}
-    comp_env_vars = set(map("COMP_".__add__, comp_env_vars))
-    with open("completion_utils.log", "w") as f:
-        comp_args = dict()
-        for key in comp_env_vars:
-            comp_args[key] = os.environ[key]
-        comp_args["cmd"] = cmd
-        comp_args["curr_word"] = curr_word
-        comp_args["prev_word"] = prev_word
-        print(json.dumps(comp_args, indent=4, sort_keys=True), file=f)
 
     if completion_function:
         results = completion_function(*sys.argv[1:])
